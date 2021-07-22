@@ -1,0 +1,11 @@
+build/
+.vscode
+.idea
+.clangd
+compile_commands.json
+cmake-build-debug
+cmake-build-release
+build
+bin
+lib
+venv

@@ -1,0 +1,21 @@
+%YAML:1.2
+padding: 1.6
+templateSize: 32
+hogCell: 1
+pSigma: 0.05
+learningRate: 0.012
+# regularization parameter
+lambda: 0.01
+
+# scale estimate
+# enableScaleEstimate: 1
+shogCell: 4
+sSigma: 0.25
+sStep: 1.02
+sHogCell: 4
+sNumOfScale: 33
+
+# loss detection
+enableLoss: 1
+psrThreshold: 10
+peakDelSize: 1
