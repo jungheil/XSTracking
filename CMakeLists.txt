@@ -28,7 +28,8 @@ include_directories(${CF_TCLAP_DIR}
         ${CF_PIOTR_DIR}
         ${CF_PIOTR_DIR}/src
         ${CF_RS232_DIR}
-        ${CF_TRACKER_RUN})
+        ${CF_TRACKER_RUN}
+        ${PROJECT_SOURCE_DIR})
 
 include_directories(src/cf_libs/kcf
         src/cf_libs/dsst
@@ -65,9 +66,11 @@ set(CF_MAIN_SOURCES
 
 add_executable(XSTracking
         src/main.cpp
+        src/common.h
+        src/camera.cpp
         src/cf_libs/dsst/dsst_debug.hpp
         src/cf_libs/dsst/dsst_tracker.hpp
         src/3rdparty/usart/usart.cpp
         ${CF_MAIN_SOURCES}
         ${CF_LIB_COMMON_SOURCES})
-target_link_libraries(XSTracking ${OpenCV_LIBS})
+target_link_libraries(XSTracking ${OpenCV_LIBS} -lpthread)

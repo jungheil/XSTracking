@@ -13,6 +13,8 @@
 #include <ctype.h>
 #include <math.h>
 
+#include <thread>
+
 #include "init_box_selector.hpp"
 #include "cf_tracker.hpp"
 
@@ -22,7 +24,8 @@ using namespace cf_tracking;
 
 TrackerRun::TrackerRun(string windowTitle) :
 _windowTitle(windowTitle),
-_debug(0)
+_debug(0),
+exit_(false)
 {
     _tracker = 0;
 }
@@ -156,21 +159,15 @@ bool TrackerRun::init()
 
 bool TrackerRun::run()
 {
-    bool success = true;
-
     std::cout << "Switch pause with 'p'" << std::endl;
     std::cout << "Step frame with 'c'" << std::endl;
     std::cout << "Select new target with 'r'" << std::endl;
     std::cout << "Update current tracker model at new location  't'" << std::endl;
     std::cout << "Quit with 'ESC'" << std::endl;
 
-    while (true)
-    {
-        success = update();
-        SendMsg(_targetOnFrame,_boundingBox);
-        if (!success)
-            break;
-    }
+    thread_pool_.emplace_back(std::thread(&TrackerRun::UsartThread,this));
+
+    CameraThreadFactory(cameras_);
 
     _cap.release();
 
@@ -373,35 +370,76 @@ void TrackerRun::AngleResolve(const Rect_<double> &boundingBox, double &pitch, d
                   _paras.cameraMatrix.at<double>(0,0));
 }
 
-bool TrackerRun::SendMsg(bool isTracking, cv::Rect_<double> box) {
-    UsartSend msg;
-    msg.isTracking = isTracking;
-    double pitch,yaw;
-    AngleResolve(box,pitch,yaw);
-    msg.pitch=pitch;
-    msg.yaw = yaw;
-    msg.x = box.x;
-    msg.y = box.y;
-    msg.width = box.width;
-    msg.height = box.height;
-    return _usart.Send((void*)&msg);
+void TrackerRun::UsartThread() {
+    usart_send_mutex_.lock();
+    _usart.Send((void*)&usart_send_);
+    usart_send_mutex_.unlock();
+    usart_recv_mutex_.lock();
+    _usart.Recv((void*)&usart_recv_);
+    usart_recv_mutex_.unlock();
 }
 
+void TrackerRun::CameraThreadFactory(std::vector<std::shared_ptr<Camera>> cams) {
+    for(auto &p:cams){
+        thread_pool_.emplace_back(&TrackerRun::CameraThread,this,std::ref(p));
+    }
+}
+
+void TrackerRun::CameraThread(std::shared_ptr<Camera> cam) {
+
+}
+
+void TrackerRun::TrackingThread() {
+    bool success = true;
+
+    while (true)
+    {
+        success = update();
+        //        SendMsg(_targetOnFrame,_boundingBox);
+        if (!success)
+            exit_ = true;
+            break;
+    }
+}
+
+//bool TrackerRun::SendMsg(bool isTracking, cv::Rect_<double> box) {
+//    UsartSend msg;
+//    msg.isTracking = isTracking;
+//    double pitch,yaw;
+//    AngleResolve(box,pitch,yaw);
+//    msg.pitch=pitch;
+//    msg.yaw = yaw;
+//    msg.x = box.x;
+//    msg.y = box.y;
+//    msg.width = box.width;
+//    msg.height = box.height;
+//    return _usart.Send((void*)&msg);
+//}
+
 bool XSUsart::Send(void *msg) {
-    uint8_t buff[6];
-    memset(buff,0,6);
+    uint8_t buff[25];
+    memset(buff,0,25);
     auto *p = (UsartSend*)msg;
-    double yaw = p->yaw*(180/3.1415926)*100;
-    double pitch = p->pitch*(180/3.1415926)*100;
+    double yaw = p->yaw_*(180/3.1415926)*100;
+    double pitch = p->pitch_*(180/3.1415926)*100;
 
-    buff[0] = 0xFF;
-    buff[1] |= p->isTracking&0x01;
-    buff[2] = (uint16_t)pitch & 0x00FF;
-    buff[3] = (uint16_t)pitch >>8;
-    buff[4] = (uint16_t)yaw & 0x00FF;
-    buff[5] = (uint16_t)yaw >>8;
+    buff[0] = 0xEB;
+    buff[1] = 0x90;
+    buff[2] = p->status_;
+    buff[3] = (uint16_t)pitch & 0x00FF;
+    buff[4] = (uint16_t)pitch >>8;
+    buff[5] = (uint16_t)yaw & 0x00FF;
+    buff[6] = (uint16_t)yaw >>8;
+    buff[9] = (p->time_).msec_ & 0x00FF;
+    buff[10] = (p->time_).msec_ >>8;
+    buff[11] = (p->time_).sec_;
+    buff[12] = (p->time_).min_;
+    buff[13] = (p->time_).hour_;
+    buff[14] = (p->time_).day_;
+    buff[19] = p->error;
 
-    if(Write(buff,6)){
+
+    if(Write(buff,25)){
         return true;
     }else{
         return false;
@@ -409,21 +447,26 @@ bool XSUsart::Send(void *msg) {
 }
 
 bool XSUsart::Recv(void *msg) {
-    uint8_t buff[10];
-    bool ret = Read(buff,10);
-    if(!ret || buff[0]!=0xFF){
+    uint8_t buff[35];
+    bool ret = Read(buff,35);
+    if(!ret || (buff[0]!=0xEB && buff[1]!=0x90)){
         return false;
     }
     auto *p = (UsartRecv*)msg;
 
-    p->update = buff[1]&0x01;
-    if(!p->update){
-        return true;
-    }
-    p->x = (uint16_t)(buff[2] | buff[3]<<8);
-    p->y = (uint16_t)(buff[4] | buff[5]<<8);
-    p->width = (uint16_t)(buff[6] | buff[7]<<8);
-    p->height = (uint16_t)(buff[8] | buff[9]<<8);
-    uint8_t fb = 0xaa;
-    return Write(&fb,1);
+    p->command_ = (UsartCommand)buff[2];
+    p->x_ = (uint16_t)(buff[3] | buff[4]<<8);
+    p->y_ = (uint16_t)(buff[5] | buff[6]<<8);
+    p->width_ = (uint16_t)(buff[7] | buff[8]<<8);
+    p->height_ = (uint16_t)(buff[9] | buff[10]<<8);
+    (p->time_).msec_ = (uint16_t)(buff[11] | buff[12]<<8);
+    (p->time_).sec_ = (uint8_t)buff[13];
+    (p->time_).min_ = (uint8_t)buff[14];
+    (p->time_).hour_ = (uint8_t)buff[15];
+    (p->time_).day_ = (uint8_t)buff[16];
+    p->camera_ = (UsartCamera)buff[21];
+    p->zoom_x_ = (uint16_t)(buff[23] | buff[24]<<8);
+    p->zoom_y_ = (uint16_t)(buff[25] | buff[26]<<8);
+    p->zoom_width_ = (uint16_t)(buff[27] | buff[28]<<8);
+    p->zoom_height_ = (uint16_t)(buff[29] | buff[30]<<8);
 }

@@ -1,7 +1,7 @@
 %YAML:1.2
-cameraType: 1
-deviceId: 0
-videoPath: "rtsp://128.0.0.1"
+cameraType: [1]
+deviceId: [0]
+videoPath: ["rtsp://128.0.0.1"]
 #usartDevice: "/dev/pts/2" #rs232
 usartDevice: "" #rs232
 usartBaudrate: 9600
