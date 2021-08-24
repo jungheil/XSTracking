@@ -66,7 +66,7 @@ set(CF_MAIN_SOURCES
 
 add_executable(XSTracking
         src/main.cpp
-        src/common.h
+        src/common.cpp
         src/camera.cpp
         src/cf_libs/dsst/dsst_debug.hpp
         src/cf_libs/dsst/dsst_tracker.hpp

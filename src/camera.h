@@ -10,6 +10,7 @@ class CameraFactory{
 public:
     CameraFactory()=default;
     static std::shared_ptr<Camera> CreateCamera(CAMERA_TYPE cam_type, std::string path);
+    static std::shared_ptr<Camera> CreateCamera(CAMERA_TYPE cam_type, int id);
 };
 
 class UVC: public Camera{

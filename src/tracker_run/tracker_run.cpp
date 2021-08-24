@@ -17,6 +17,7 @@
 
 #include "init_box_selector.hpp"
 #include "cf_tracker.hpp"
+#include "src/camera.h"
 
 using namespace cv;
 using namespace std;
@@ -52,12 +53,27 @@ Parameters TrackerRun::parseCmdArgs()
         cerr<<"load param failed!"<<endl;
         exit(100);
     }
-    if(!fs["cameraType"].empty()) fs["cameraType"]>>paras.device;
-    else cerr << "missing parameters!" << endl;
-    if(!fs["deviceId"].empty()) fs["deviceId"]>>paras.deviceId;
-    else cerr << "missing parameters!" << endl;
-    if(!fs["videoPath"].empty()) fs["videoPath"]>>paras.videoPath;
-    else cerr << "missing parameters!" << endl;
+    if(!fs["cameraType"].empty()) {
+        cv::FileNode deviceNode = fs["cameraType"];
+        auto it=deviceNode.begin(), it_end=deviceNode.end();
+        for(;it!=it_end;++it){
+            paras.device.push_back((int)(*it));
+        }
+    }else cerr << "missing parameters!" << endl;
+    if(!fs["deviceId"].empty()){
+        cv::FileNode deviceIdNode = fs["deviceId"];
+        auto it=deviceIdNode.begin(), it_end=deviceIdNode.end();
+        for(;it!=it_end;++it){
+            paras.deviceId.push_back((int)(*it));
+        }
+    }else cerr << "missing parameters!" << endl;
+    if(!fs["videoPath"].empty()){
+        cv::FileNode videoPathNode = fs["videoPath"];
+        auto it=videoPathNode.begin(), it_end=videoPathNode.end();
+        for(;it!=it_end;++it){
+            paras.videoPath.push_back((std::string)(*it));
+        }
+    }else cerr << "missing parameters!" << endl;
 
     if(!fs["usartDevice"].empty()) fs["usartDevice"]>>paras.usartDevice;
     else cerr << "missing parameters!" << endl;
@@ -100,12 +116,12 @@ bool TrackerRun::start()
 
     while (true)
     {
-        if (init() == false)
+        if (!init())
             return false;
-        if (run() == false)
+        if (!run())
             return false;
 
-        if (_exit)
+        if (exit_)
             break;
 
         _hasInitBox = false;
@@ -117,22 +133,38 @@ bool TrackerRun::start()
 
 bool TrackerRun::init()
 {
-    switch(_paras.device){
-        case 0:
-            _cap.open(_paras.videoPath);
-            break;
-        case 1:
-            _cap.open(_paras.deviceId);
-            break;
+    int cam_count = 0;
+    for(auto& dev:_paras.device){
+        switch(dev){
+            case 0:
+                cameras_.emplace_back(
+                        CameraFactory::CreateCamera(
+                                CAMERA_TYPE_UVC,
+                                _paras.deviceId[cam_count++]));
+                break;
+            case 1:
+                cameras_.emplace_back(
+                        CameraFactory::CreateCamera(
+                                CAMERA_TYPE_UVC,
+                                _paras.videoPath[cam_count++]));
+                break;
+            case 2:
+                cameras_.emplace_back(
+                        CameraFactory::CreateCamera(
+                                CAMERA_TYPE_XSCAM,
+                                _paras.videoPath[cam_count++]));
+                break;
+        }
     }
 
-    if (!_cap.isOpened())
-    {
-        cerr << "Could not open device/video!" << endl;
-        exit(-1);
+    for(auto &s:cameras_){
+        Ximg temp_img;
+        s->GetImg(temp_img);
+        _imgSize.emplace_back(cv::Size(temp_img.get_cv_color().cols,temp_img.get_cv_color().rows));
+        _image.push_back(std::move(temp_img));
+        img_mutex_.emplace_back(make_unique<std::mutex>());
+        img_used_.emplace_back(make_unique<std::atomic<bool>>(true));
     }
-    _cap >> _image;
-    _imgSize = cv::Size(_image.cols,_image.rows);
 
     if (_paras.showOutput)
         namedWindow(_windowTitle.c_str());
@@ -154,6 +186,11 @@ bool TrackerRun::init()
     }
 
     _frameIdx = 0;
+
+    thread_pool_.emplace_back(std::thread(&TrackerRun::UsartThread,this));
+    CameraThreadFactory(cameras_);
+    //TODO 解决线程启动顺序问题
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     return true;
 }
 
@@ -165,26 +202,60 @@ bool TrackerRun::run()
     std::cout << "Update current tracker model at new location  't'" << std::endl;
     std::cout << "Quit with 'ESC'" << std::endl;
 
-    thread_pool_.emplace_back(std::thread(&TrackerRun::UsartThread,this));
+//    thread_pool_.emplace_back(std::thread(&TrackerRun::TrackingThread,this));
+    while(!exit_){}
 
-    CameraThreadFactory(cameras_);
-
-    _cap.release();
+    for(auto &t:thread_pool_){
+        t.join();
+    }
 
     return true;
 }
 
 bool TrackerRun::update()
 {
+    Ximg src;
+    UsartRecv recv;
     int64 tStart = 0;
     int64 tDuration = 0;
 //    bool isEnd = false;
 
+    usart_recv_mutex_.lock();
+    recv = usart_recv_;
+    usart_recv_mutex_.unlock();
+
+    switch(recv.command_){
+        case UsartCommandFree:
+            _isPaused = true;
+            _hasInitBox = false;
+            _isTrackerInitialzed = false;
+            return true;
+            break;
+        case UsartCommandTarInit:
+            _hasInitBox = false;
+            _isTrackerInitialzed = false;
+            break;
+        case UsartCommandTarInitAt:
+            _updateAtPos = true;
+            break;
+        case UsartCommandStopTrack:
+            _isPaused = true;
+            break;
+    }
+
     if (!_isPaused || _frameIdx == 0 || _isStep)
     {
-        _cap >> _image;
+        Ximg src;
+        if(recv.camera_ == 0x01){
+            src = _image[0];
+        }else if(recv.camera_ == 0x02){
+            src = _image[1];
+        }else{
+            std::cerr<<"camera type error"<<endl;
+            return true;
+        }
 
-        if (_image.empty())
+        if (src.get_cv_color().empty())
             return false;
 
         ++_frameIdx;
@@ -196,7 +267,7 @@ bool TrackerRun::update()
         {
             Rect box;
 
-            if (!InitBoxSelector::selectBox(_image, box))
+            if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                 return false;
 
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
@@ -208,7 +279,7 @@ bool TrackerRun::update()
         }
 
         tStart = getTickCount();
-        _targetOnFrame = _tracker->reinit(_image, _boundingBox);
+        _targetOnFrame = _tracker->reinit(src.get_cv_color(), _boundingBox);
         tDuration = getTickCount() - tStart;
 
         if (_targetOnFrame)
@@ -222,7 +293,7 @@ bool TrackerRun::update()
         {
             Rect box;
 
-            if (!InitBoxSelector::selectBox(_image, box))
+            if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                 return false;
 
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
@@ -234,7 +305,7 @@ bool TrackerRun::update()
 
             std::cout << "UpdateAt_: " << _boundingBox << std::endl;
             tStart = getTickCount();
-            _targetOnFrame = _tracker->updateAt(_image, _boundingBox);
+            _targetOnFrame = _tracker->updateAt(src.get_cv_color(), _boundingBox);
             tDuration = getTickCount() - tStart;
 
             if (!_targetOnFrame)
@@ -243,7 +314,7 @@ bool TrackerRun::update()
         else
         {
             tStart = getTickCount();
-            _targetOnFrame = _tracker->update(_image, _boundingBox);
+            _targetOnFrame = _tracker->update(src.get_cv_color(), _boundingBox);
             tDuration = getTickCount() - tStart;
         }
     }
@@ -254,7 +325,7 @@ bool TrackerRun::update()
     if (_paras.showOutput)
     {
         Mat hudImage;
-        _image.copyTo(hudImage);
+        src.get_cv_color().copyTo(hudImage);
         rectangle(hudImage, _boundingBox, Scalar(0, 0, 255), 2);
         Point_<double> center;
         center.x = _boundingBox.x + _boundingBox.width / 2;
@@ -305,7 +376,7 @@ bool TrackerRun::update()
 
         if (c == 27)
         {
-            _exit = true;
+            exit_ = true;
             return false;
         }
 
@@ -371,6 +442,7 @@ void TrackerRun::AngleResolve(const Rect_<double> &boundingBox, double &pitch, d
 }
 
 void TrackerRun::UsartThread() {
+    cout<<"usart thread started!"<<endl;
     usart_send_mutex_.lock();
     _usart.Send((void*)&usart_send_);
     usart_send_mutex_.unlock();
@@ -381,15 +453,26 @@ void TrackerRun::UsartThread() {
 
 void TrackerRun::CameraThreadFactory(std::vector<std::shared_ptr<Camera>> cams) {
     for(auto &p:cams){
-        thread_pool_.emplace_back(&TrackerRun::CameraThread,this,std::ref(p));
+        thread_pool_.emplace_back(&TrackerRun::CameraThread,this,p);
     }
 }
 
 void TrackerRun::CameraThread(std::shared_ptr<Camera> cam) {
 
+    cout<<"cam thread started! "<<(int)cam->get_id()<<endl;
+    while(!exit_){
+        Ximg temp_img;
+        cam->GetImg(temp_img);
+        img_mutex_[cam->get_id()]->lock();
+        _image[cam->get_id()] = std::move(temp_img);
+        *img_used_[cam->get_id()]=false;
+        img_mutex_[cam->get_id()]->unlock();
+    }
 }
 
 void TrackerRun::TrackingThread() {
+    cout<<"tracking thread started!"<<endl;
+
     bool success = true;
 
     while (true)

@@ -7,11 +7,19 @@
 UVC::UVC(int cam) {
     cam_type_ = CAMERA_TYPE_UVC;
     fb_ = cv::VideoCapture(cam);
+    if(fb_.isOpened()){
+        cam_id_=cam_count_++;
+        std::cout<<(int)cam_id_<<std::endl;
+    }
 }
 
 UVC::UVC(std::string path) {
     cam_type_ = CAMERA_TYPE_UVC;
     fb_ = cv::VideoCapture(path);
+    if(fb_.isOpened()){
+        cam_id_=cam_count_++;
+        std::cout<<(int)cam_id_<<std::endl;
+    }
 }
 
 bool UVC::GetImg(Ximg &img) {
@@ -28,6 +36,16 @@ std::shared_ptr<Camera> CameraFactory::CreateCamera(CAMERA_TYPE cam_type, std::s
             break;
         case CAMERA_TYPE_XSCAM:
             return std::make_shared<XSCAM>(path);
+            break;
+        default:
+            std::cerr<<"camera type invalid!"<<std::endl;
+    }
+}
+
+std::shared_ptr<Camera> CameraFactory::CreateCamera(CAMERA_TYPE cam_type, int id) {
+    switch(cam_type){
+        case CAMERA_TYPE_UVC:
+            return std::make_shared<UVC>(id);
             break;
         default:
             std::cerr<<"camera type invalid!"<<std::endl;

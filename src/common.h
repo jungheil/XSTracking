@@ -49,12 +49,15 @@ enum CAMERA_TYPE{
 };
 class Camera {
 public:
-    Camera() = default;
+    Camera() { std::cout<<(int)cam_count_<<std::endl; };
     virtual bool GetImg(Ximg &img)=0;
     bool operator >>(Ximg &img){return GetImg(img);};
     inline CAMERA_TYPE GetCamType(){return cam_type_;};
+    inline uint8_t get_id() const {return cam_id_;};
 protected:
     CAMERA_TYPE cam_type_ = CAMERA_TYPE_UNKOWN;
+    uint8_t cam_id_;
+    static uint8_t cam_count_;
 };
 
 

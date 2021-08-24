@@ -45,7 +45,7 @@ enum UsartCommand{
     UsartCommandTarInit = 0x31,
     UsartCommandTarInitAt = 0x32,
     UsartCommandStopTrack = 0x33,
-    UsartCommandStopZoom = 0x35
+    UsartCommandZoom = 0x35
 };
 enum UsartCamera{
     UsartCameraRGB = 0x01,
@@ -76,11 +76,11 @@ public:
 struct Parameters{
     std::string outputFilePath;
     std::string imgExportPath;
-    std::string videoPath;
+    std::vector<std::string> videoPath;
     std::string usartDevice;
     int usartBaudrate;
-    int device;
-    int deviceId;
+    std::vector<int> device;
+    std::vector<int> deviceId;
     bool showOutput;
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
@@ -115,20 +115,18 @@ protected:
     std::string _runConfigPath = "../config/runConfig.yaml";
 
 private:
-    cv::Mat _image;
-    cv::Size _imgSize;
+    std::vector<cv::Size> _imgSize;
     cf_tracking::CfTracker* _tracker;
     std::string _windowTitle;
     Parameters _paras;
     cv::Rect_<double> _boundingBox;
-    cv::VideoCapture _cap;
+//    cv::VideoCapture _cap;
     std::ofstream _resultsFile;
     cf_tracking::TrackerDebug* _debug;
     XSUsart _usart;
     int _frameIdx;
     bool _isPaused = false;
     bool _isStep = false;
-    bool _exit = false;
     bool _hasInitBox = false;
     bool _isTrackerInitialzed = false;
     bool _targetOnFrame = false;
@@ -142,6 +140,10 @@ private:
     UsartRecv usart_recv_ = {};
     std::mutex usart_send_mutex_;
     std::mutex usart_recv_mutex_;
+
+    std::vector<Ximg> _image;
+    std::vector<std::unique_ptr<std::mutex>> img_mutex_;
+    std::vector<std::unique_ptr<std::atomic<bool>>> img_used_;
 
 };
 
