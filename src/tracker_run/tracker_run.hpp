@@ -82,6 +82,7 @@ struct Parameters{
     std::vector<int> device;
     std::vector<int> deviceId;
     bool showOutput;
+    bool videoDebug;
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
 };

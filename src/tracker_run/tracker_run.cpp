@@ -86,6 +86,8 @@ Parameters TrackerRun::parseCmdArgs()
     else cerr << "missing parameters!" << endl;
     if(!fs["showOutput"].empty()) fs["showOutput"]>>paras.showOutput;
     else cerr << "missing parameters!" << endl;
+    if(!fs["videoDebug"].empty()) fs["videoDebug"]>>paras.videoDebug;
+    else cerr << "missing parameters!" << endl;
     if(!fs["enableDebug"].empty()) fs["enableDebug"]>>enableDebug;
     else cerr << "missing parameters!" << endl;
 
@@ -202,7 +204,7 @@ bool TrackerRun::run()
     std::cout << "Update current tracker model at new location  't'" << std::endl;
     std::cout << "Quit with 'ESC'" << std::endl;
 
-//    thread_pool_.emplace_back(std::thread(&TrackerRun::TrackingThread,this));
+    thread_pool_.emplace_back(std::thread(&TrackerRun::TrackingThread,this));
     while(!exit_){}
 
     for(auto &t:thread_pool_){
@@ -224,37 +226,55 @@ bool TrackerRun::update()
     recv = usart_recv_;
     usart_recv_mutex_.unlock();
 
-    switch(recv.command_){
-        case UsartCommandFree:
-            _isPaused = true;
-            _hasInitBox = false;
-            _isTrackerInitialzed = false;
-            return true;
-            break;
-        case UsartCommandTarInit:
-            _hasInitBox = false;
-            _isTrackerInitialzed = false;
-            break;
-        case UsartCommandTarInitAt:
-            _updateAtPos = true;
-            break;
-        case UsartCommandStopTrack:
-            _isPaused = true;
-            break;
+    if(!_paras.videoDebug){
+        switch(recv.command_){
+            case UsartCommandFree:
+                _isPaused = true;
+                _hasInitBox = false;
+                _isTrackerInitialzed = false;
+                return true;
+                break;
+            case UsartCommandTarInit:
+                _hasInitBox = false;
+                _isTrackerInitialzed = false;
+                break;
+            case UsartCommandTarInitAt:
+                _updateAtPos = true;
+                break;
+            case UsartCommandStopTrack:
+                _isPaused = true;
+                break;
+        }
     }
 
     if (!_isPaused || _frameIdx == 0 || _isStep)
     {
-        Ximg src;
-        if(recv.camera_ == 0x01){
-            src = _image[0];
-        }else if(recv.camera_ == 0x02){
-            src = _image[1];
-        }else{
-            std::cerr<<"camera type error"<<endl;
-            return true;
-        }
+        if(_paras.videoDebug){
 
+            while(*img_used_[0]){}
+
+            img_mutex_[0]->lock();
+            src = _image[0];
+            img_mutex_[0]->unlock();
+            *img_used_[0]=true;
+        }else{
+            if(recv.camera_ == 0x01){
+                while(*img_used_[0]){}
+                img_mutex_[0]->lock();
+                src = _image[0];
+                img_mutex_[0]->lock();
+                *img_used_[0]=true;
+            }else if(recv.camera_ == 0x02){
+                while(*img_used_[1]){}
+                img_mutex_[1]->lock();
+                src = _image[1];
+                img_mutex_[1]->lock();
+                *img_used_[1]=true;
+            }else{
+                std::cerr<<"camera type error"<<endl;
+                return true;
+            }
+        }
         if (src.get_cv_color().empty())
             return false;
 
@@ -266,10 +286,8 @@ bool TrackerRun::update()
         if (!_hasInitBox)
         {
             Rect box;
-
             if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                 return false;
-
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
                 static_cast<double>(box.y),
                 static_cast<double>(box.width),
@@ -442,13 +460,22 @@ void TrackerRun::AngleResolve(const Rect_<double> &boundingBox, double &pitch, d
 }
 
 void TrackerRun::UsartThread() {
-    cout<<"usart thread started!"<<endl;
-    usart_send_mutex_.lock();
-    _usart.Send((void*)&usart_send_);
-    usart_send_mutex_.unlock();
-    usart_recv_mutex_.lock();
-    _usart.Recv((void*)&usart_recv_);
-    usart_recv_mutex_.unlock();
+    UsartSend send_msg;
+    UsartRecv recv_msg;
+    while(!exit_){
+        cout<<"usart thread started!"<<endl;
+
+        _usart.Send((void*)&send_msg);
+        usart_send_mutex_.lock();
+        usart_send_=send_msg;
+        usart_send_mutex_.unlock();
+
+        _usart.Recv((void*)&recv_msg);
+        usart_recv_mutex_.lock();
+        usart_recv_=recv_msg;
+        usart_recv_mutex_.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    }
 }
 
 void TrackerRun::CameraThreadFactory(std::vector<std::shared_ptr<Camera>> cams) {
@@ -478,10 +505,10 @@ void TrackerRun::TrackingThread() {
     while (true)
     {
         success = update();
-        //        SendMsg(_targetOnFrame,_boundingBox);
-        if (!success)
+        if (!success){
             exit_ = true;
             break;
+        }
     }
 }
 

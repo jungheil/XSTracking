@@ -7,7 +7,8 @@ usartDevice: "/dev/pts/0" #rs232
 #usartDevice: "" #rs232
 usartBaudrate: 9600
 enableDebug: 1
-showOutput: 0
+showOutput: 1
+videoDebug: 1
 outputFilePath: ""
 imgExportPath: ""
 

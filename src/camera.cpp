@@ -9,7 +9,6 @@ UVC::UVC(int cam) {
     fb_ = cv::VideoCapture(cam);
     if(fb_.isOpened()){
         cam_id_=cam_count_++;
-        std::cout<<(int)cam_id_<<std::endl;
     }
 }
 
@@ -18,7 +17,6 @@ UVC::UVC(std::string path) {
     fb_ = cv::VideoCapture(path);
     if(fb_.isOpened()){
         cam_id_=cam_count_++;
-        std::cout<<(int)cam_id_<<std::endl;
     }
 }
 
