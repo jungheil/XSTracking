@@ -45,12 +45,15 @@ enum UsartCommand{
     UsartCommandTarInit = 0x31,
     UsartCommandTarInitAt = 0x32,
     UsartCommandStopTrack = 0x33,
-    UsartCommandZoom = 0x35
+    UsartComandStartTrack = 0x34
+//    UsartCommandZoom = 0x35
 };
+
 enum UsartCamera{
     UsartCameraRGB = 0x01,
     UsartCameraIR = 0x02
 };
+
 
 struct UsartRecv{
     UsartCommand command_;
@@ -59,10 +62,10 @@ struct UsartRecv{
     uint16_t y_;
     uint16_t width_;
     uint16_t height_;
+    uint8_t tar_id_;
     uint16_t zoom_x_;
     uint16_t zoom_y_;
-    uint16_t zoom_width_;
-    uint16_t zoom_height_;
+    uint8_t zoom_size_;
     XSTime time_;
 };
 class XSUsart:public Usart{
@@ -83,6 +86,7 @@ struct Parameters{
     std::vector<int> deviceId;
     bool showOutput;
     bool videoDebug;
+    bool localDebug;
     cv::Mat cameraMatrix;
     cv::Mat distCoeffs;
 };
@@ -106,6 +110,7 @@ private:
     bool SendMsg(bool isTracking,cv::Rect_<double> box);
 
     void UsartThread();
+    // TODO: 相机初始化id
     void CameraThread(std::shared_ptr<Camera> cam);
     void CameraThreadFactory(std::vector<std::shared_ptr<Camera>> cams);
     void TrackingThread();
@@ -132,6 +137,8 @@ private:
     bool _isTrackerInitialzed = false;
     bool _targetOnFrame = false;
     bool _updateAtPos = false;
+
+    uint8_t tracking_tar_=255;
 
     std::vector<std::shared_ptr<Camera>> cameras_;
     std::vector<std::thread> thread_pool_;

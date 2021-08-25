@@ -86,6 +86,8 @@ Parameters TrackerRun::parseCmdArgs()
     else cerr << "missing parameters!" << endl;
     if(!fs["showOutput"].empty()) fs["showOutput"]>>paras.showOutput;
     else cerr << "missing parameters!" << endl;
+    if(!fs["localDebug"].empty()) fs["localDebug"]>>paras.localDebug;
+    else cerr << "missing parameters!" << endl;
     if(!fs["videoDebug"].empty()) fs["videoDebug"]>>paras.videoDebug;
     else cerr << "missing parameters!" << endl;
     if(!fs["enableDebug"].empty()) fs["enableDebug"]>>enableDebug;
@@ -189,6 +191,9 @@ bool TrackerRun::init()
 
     _frameIdx = 0;
 
+    usart_send_mutex_.lock();
+    usart_send_.status_=UsartStatusBringup;
+    usart_send_mutex_.unlock();
     thread_pool_.emplace_back(std::thread(&TrackerRun::UsartThread,this));
     CameraThreadFactory(cameras_);
     //TODO 解决线程启动顺序问题
@@ -205,6 +210,7 @@ bool TrackerRun::run()
     std::cout << "Quit with 'ESC'" << std::endl;
 
     thread_pool_.emplace_back(std::thread(&TrackerRun::TrackingThread,this));
+    // TODO: 主线程要空闲吗？
     while(!exit_){}
 
     for(auto &t:thread_pool_){
@@ -217,7 +223,7 @@ bool TrackerRun::run()
 bool TrackerRun::update()
 {
     Ximg src;
-    UsartRecv recv;
+    UsartRecv recv{};
     int64 tStart = 0;
     int64 tDuration = 0;
 //    bool isEnd = false;
@@ -226,30 +232,47 @@ bool TrackerRun::update()
     recv = usart_recv_;
     usart_recv_mutex_.unlock();
 
-    if(!_paras.videoDebug){
+    if(!_paras.localDebug){
         switch(recv.command_){
             case UsartCommandFree:
                 _isPaused = true;
                 _hasInitBox = false;
                 _isTrackerInitialzed = false;
+                usart_send_mutex_.lock();
+                usart_send_.status_ = UsartStatusFree;
+                usart_send_mutex_.unlock();
                 return true;
                 break;
             case UsartCommandTarInit:
-                _hasInitBox = false;
-                _isTrackerInitialzed = false;
+                if(tracking_tar_==recv.tar_id_){
+                    _isPaused = false;
+                }else{
+                    _hasInitBox = false;
+                    _isTrackerInitialzed = false;
+                }
                 break;
             case UsartCommandTarInitAt:
-                _updateAtPos = true;
+                if(tracking_tar_==recv.tar_id_) {
+                    _isPaused = false;
+                }else{
+                    _updateAtPos = true;
+                }
                 break;
             case UsartCommandStopTrack:
                 _isPaused = true;
                 break;
+            case UsartComandStartTrack:
+                _isPaused = false;
+                break;
+            default:
+                std::cerr<<"Usart command error"<<endl;
+                return true;
         }
     }
 
     if (!_isPaused || _frameIdx == 0 || _isStep)
     {
-        if(_paras.videoDebug){
+        if(_paras.localDebug){
 
             while(*img_used_[0]){}
 
@@ -285,15 +308,27 @@ bool TrackerRun::update()
     {
         if (!_hasInitBox)
         {
+            usart_send_mutex_.lock();
+            usart_send_.status_ = UsartStatusInit;
+            usart_send_mutex_.unlock();
             Rect box;
-            if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
-                return false;
+            if(_paras.localDebug){
+                if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
+                    return false;
+            }else{
+                float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
+                box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
+                           int(recv.zoom_y_+recv.y_*zoom_s),
+                           int(recv.width_*zoom_s),
+                           int(recv.height_*zoom_s));
+            }
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
                 static_cast<double>(box.y),
                 static_cast<double>(box.width),
                 static_cast<double>(box.height));
 
             _hasInitBox = true;
+            tracking_tar_=recv.tar_id_;
         }
 
         tStart = getTickCount();
@@ -305,14 +340,26 @@ bool TrackerRun::update()
     }
     else if (_isTrackerInitialzed && (!_isPaused || _isStep))
     {
+
         _isStep = false;
 
         if (_updateAtPos)
         {
+            usart_send_mutex_.lock();
+            usart_send_.status_ = UsartStatusInit;
+            usart_send_mutex_.unlock();
             Rect box;
 
-            if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
-                return false;
+            if(_paras.localDebug){
+                if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
+                    return false;
+            }else{
+                float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
+                box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
+                           int(recv.zoom_y_+recv.y_*zoom_s),
+                           int(recv.width_*zoom_s),
+                           int(recv.height_*zoom_s));
+            }
 
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
                 static_cast<double>(box.y),
@@ -328,13 +375,26 @@ bool TrackerRun::update()
 
             if (!_targetOnFrame)
                 std::cout << "Target not found!" << std::endl;
+
+            tracking_tar_=recv.tar_id_;
         }
         else
         {
+            usart_send_mutex_.lock();
+            usart_send_.status_ = UsartStatusTracking;
+            usart_send_mutex_.unlock();
+
             tStart = getTickCount();
             _targetOnFrame = _tracker->update(src.get_cv_color(), _boundingBox);
             tDuration = getTickCount() - tStart;
         }
+    }
+
+    if (!_targetOnFrame)
+    {
+        usart_send_mutex_.lock();
+        usart_send_.status_ = UsartStatusLoss;
+        usart_send_mutex_.unlock();
     }
 
     double fps = static_cast<double>(getTickFrequency() / tDuration);
@@ -501,6 +561,9 @@ void TrackerRun::TrackingThread() {
     cout<<"tracking thread started!"<<endl;
 
     bool success = true;
+    usart_send_mutex_.lock();
+    usart_send_.status_ = UsartStatusFree;
+    usart_send_mutex_.unlock();
 
     while (true)
     {
@@ -574,9 +637,9 @@ bool XSUsart::Recv(void *msg) {
     (p->time_).min_ = (uint8_t)buff[14];
     (p->time_).hour_ = (uint8_t)buff[15];
     (p->time_).day_ = (uint8_t)buff[16];
+    p->tar_id_ = (uint8_t)buff[17];
     p->camera_ = (UsartCamera)buff[21];
+    p->zoom_size_ = (uint16_t)buff[22];
     p->zoom_x_ = (uint16_t)(buff[23] | buff[24]<<8);
     p->zoom_y_ = (uint16_t)(buff[25] | buff[26]<<8);
-    p->zoom_width_ = (uint16_t)(buff[27] | buff[28]<<8);
-    p->zoom_height_ = (uint16_t)(buff[29] | buff[30]<<8);
 }
