@@ -39,9 +39,10 @@ class Ximg{
 public:
     Ximg() = default;
 
-    Ximg(Camera *cam, cv::Mat&& src, uint64_t seq=0):
+    Ximg(Camera *cam, cv::Mat&& src, CHANNEL_TYPE ct, uint64_t seq=0):
     cam_(cam),
     img_(std::move(src)),
+    channel_type(ct),
     seq_(seq){};
 
     Ximg(Camera *cam, cv::Mat&& src, XSTime time, CHANNEL_TYPE ct, uint64_t seq=0):

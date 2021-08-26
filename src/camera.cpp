@@ -31,13 +31,13 @@ UVC::UVC(std::string path) {
 bool UVC::GetImg(Ximg &img) {
     cv::Mat src;
     fb_ >> src;
-    XSTime Img_time = this->UVC_TV[getUVCTimeNums];
+    //XSTime Img_time = this->UVC_TV[getUVCTimeNums];
     if(src.channels()==3) //三通道
     {
-        img = Ximg(this, std::move(src), Img_time, TRIPLE, getUVCTimeNums);
+        img = Ximg(this, std::move(src), TRIPLE, getUVCTimeNums);
     }
     else //单通道
-        img = Ximg(this, std::move(src), Img_time, SINGLE, getUVCTimeNums);
+        img = Ximg(this, std::move(src), SINGLE, getUVCTimeNums);
     getUVCTimeNums++;
     //img = Ximg(this,std::move(src));
     return true;
