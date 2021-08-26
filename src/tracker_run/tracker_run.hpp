@@ -110,7 +110,7 @@ private:
     bool SendMsg(bool isTracking,cv::Rect_<double> box);
 
     void UsartThread();
-    // TODO: 相机初始化id
+    // TODO: 图像序列，时间
     void CameraThread(std::shared_ptr<Camera> cam);
     void CameraThreadFactory(std::vector<std::shared_ptr<Camera>> cams);
     void TrackingThread();

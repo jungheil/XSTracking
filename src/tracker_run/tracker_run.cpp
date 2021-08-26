@@ -548,6 +548,7 @@ void TrackerRun::CameraThread(std::shared_ptr<Camera> cam) {
 
     cout<<"cam thread started! "<<(int)cam->get_id()<<endl;
     while(!exit_){
+        if(!*img_used_[cam->get_id()]) continue;
         Ximg temp_img;
         cam->GetImg(temp_img);
         img_mutex_[cam->get_id()]->lock();
