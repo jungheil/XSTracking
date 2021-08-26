@@ -112,3 +112,10 @@ bool InitBoxSelector::startSelection = false;
 bool InitBoxSelector::selectObject = false;
 cv::Mat InitBoxSelector::image;
 cv::Rect InitBoxSelector::initBox;
+
+bool InitBoxSelectorCmd::selectBox(cv::Rect &initBox) {
+//    int x,y,w,h;
+//    std::cout<<"Init box:"<<std::endl;
+//    std::cin>>x>>y>>w>>h;
+//    initBox = cv::Rect(x,y,w,h);
+}

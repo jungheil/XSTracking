@@ -70,4 +70,9 @@ private:
     static const std::string windowTitle;
 };
 
+class InitBoxSelectorCmd{
+public:
+    static bool selectBox(cv::Rect& initBox);
+};
+
 #endif /* INIT_BOX_SELECTOR_H_ */

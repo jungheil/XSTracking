@@ -313,8 +313,13 @@ bool TrackerRun::update()
             usart_send_mutex_.unlock();
             Rect box;
             if(_paras.localDebug){
-                if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
-                    return false;
+                if(!_paras.showOutput){
+                    if (!InitBoxSelectorCmd::selectBox(box))
+                        return false;
+                }else{
+                    if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
+                        return false;
+                }
             }else{
                 float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
                 box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
@@ -351,8 +356,13 @@ bool TrackerRun::update()
             Rect box;
 
             if(_paras.localDebug){
-                if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
-                    return false;
+                if(!_paras.showOutput){
+                    if (!InitBoxSelectorCmd::selectBox(box))
+                        return false;
+                }else{
+                    if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
+                        return false;
+                }
             }else{
                 float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
                 box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
