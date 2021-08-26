@@ -21,10 +21,10 @@ UVC::UVC(std::string path) {
         cam_id_=cam_count_++;
     }
 
-    this->path_=path;
-    GetTimestampFromSei(path,UVC_TV);
-    totalTimeNUms = UVC_TV.size();
-    getUVCTimeNums = 0;
+//    this->path_=path;
+//    GetTimestampFromSei(path,UVC_TV);
+//    totalTimeNUms = UVC_TV.size();
+//    getUVCTimeNums = 0;
 
 }
 
