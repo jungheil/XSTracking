@@ -17,7 +17,9 @@
 #include <mutex>
 #include <atomic>
 #include <fstream>
+#ifndef TERMINAL_MODE
 #include <opencv2/highgui/highgui.hpp>
+#endif
 #include "cf_tracker.hpp"
 #include "tracker_debug.hpp"
 #include "dsst_tracker.hpp"

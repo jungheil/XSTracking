@@ -8,6 +8,8 @@
 */
 
 #include "tracker_run.hpp"
+#include<iomanip>
+
 
 #include <iostream>
 #include <ctype.h>
@@ -170,9 +172,10 @@ bool TrackerRun::init()
         img_used_.emplace_back(make_unique<std::atomic<bool>>(true));
     }
 
+#ifndef TERMINAL_MODE
     if (_paras.showOutput)
         namedWindow(_windowTitle.c_str());
-
+#endif
     if (!_paras.outputFilePath.empty())
     {
         _resultsFile.open(_paras.outputFilePath.c_str());
@@ -313,8 +316,10 @@ bool TrackerRun::update()
             usart_send_mutex_.unlock();
             Rect box;
             if(_paras.localDebug){
+#ifndef TERMINAL_MODE
                 if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                     return false;
+#endif
             }else{
                 float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
                 box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
@@ -351,8 +356,11 @@ bool TrackerRun::update()
             Rect box;
 
             if(_paras.localDebug){
+#ifndef TERMINAL_MODE
+
                 if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                     return false;
+#endif
             }else{
                 float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
                 box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
@@ -400,6 +408,7 @@ bool TrackerRun::update()
     double fps = static_cast<double>(getTickFrequency() / tDuration);
     printResults(_boundingBox, _targetOnFrame, fps);
 
+#ifndef TERMINAL_MODE
     if (_paras.showOutput)
     {
         Mat hudImage;
@@ -431,7 +440,6 @@ bool TrackerRun::update()
             line(hudImage, cv::Point_<double>(tl.x, br.y),
                 cv::Point_<double>(br.x, tl.y), Scalar(0, 0, 255));
         }
-
         imshow(_windowTitle.c_str(), hudImage);
 
         if (!_paras.imgExportPath.empty())
@@ -449,6 +457,7 @@ bool TrackerRun::update()
                 cerr << "Could not write output images: " << runtimeError.what() << endl;
             }
         }
+
 
         char c = (char)waitKey(10);
 
@@ -477,6 +486,8 @@ bool TrackerRun::update()
             ;
         }
     }
+#endif
+
 
     return true;
 }

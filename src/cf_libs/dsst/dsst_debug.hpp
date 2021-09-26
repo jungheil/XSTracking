@@ -4,6 +4,9 @@
 
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/core/core.hpp"
+#ifndef TERMINAL_MODE
+#include "opencv2/highgui.hpp"
+#endif
 #include <iostream>
 #include <fstream>
 
@@ -29,8 +32,10 @@ namespace cf_tracking
 
         virtual void init(std::string outputFilePath)
         {
+#ifndef TERMINAL_MODE
             namedWindow(_SUB_WINDOW_TITLE, cv::WINDOW_NORMAL);
             namedWindow(_RESPONSE_TITLE, cv::WINDOW_NORMAL);
+#endif
             _outputFile.open(outputFilePath.c_str());
         }
 
@@ -63,7 +68,9 @@ namespace cf_tracking
 
         void showPatch(const cv::Mat& patchResized)
         {
+#ifndef TERMINAL_MODE
             imshow(_SUB_WINDOW_TITLE, patchResized);
+#endif
         }
 
         void setPsr(double psrClamped)
@@ -75,7 +82,9 @@ namespace cf_tracking
         {
             cv::Mat responseOutput = response.clone();
             _maxResponse = maxResponse;
+#ifndef TERMINAL_MODE
             imshow(_RESPONSE_TITLE, responseOutput);
+#endif
         }
 
         void setTargetSizeArea(T targetSizeArea)

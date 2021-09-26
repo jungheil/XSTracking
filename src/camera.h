@@ -9,6 +9,7 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <opencv2/videoio.hpp>
 
 extern "C"
 {

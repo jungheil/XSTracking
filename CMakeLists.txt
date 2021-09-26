@@ -73,4 +73,17 @@ add_executable(XSTracking
         src/3rdparty/usart/usart.cpp
         ${CF_MAIN_SOURCES}
         ${CF_LIB_COMMON_SOURCES})
-target_link_libraries(XSTracking ${OpenCV_LIBS} -lpthread)
+#target_link_libraries(XSTracking ${OpenCV_LIBS} -lpthread)
+target_link_libraries(XSTracking
+        ${OpenCV_LIBS}
+        ${AVFORMAT_LIBRARY}
+        ${AVDEVICE_LIBRARY}
+        ${AVCODEC_LIBRARY}
+        ${AVUTIL_LIBRARY}
+        -lpthread
+        -L/usr/local/lib -lavformat -lm -lbz2 -lz -lavcodec -pthread -lm -llzma -lz -lswresample -lm -lavutil -pthread -lm -lX11
+        #在terminal里面输入，然后回车   pkg-config --libs libavutil libavformat libavcodec
+        #我的电脑显示的是：
+        #-L/usr/local/lib -lavformat -lm -lbz2 -lz -lavcodec -pthread -lm -llzma -lz -lswresample -lm -lavutil -pthread -lm -lX11
+        #不同电脑可能不一样，把自己电脑显示的内容代替我这个，就可以了。
+        )

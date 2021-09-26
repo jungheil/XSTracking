@@ -5,7 +5,10 @@
 #ifndef XSTRACKING_COMMON_H
 #define XSTRACKING_COMMON_H
 #include <stdint.h>
-#include <opencv2/opencv.hpp>
+#include <iostream>
+#include <opencv2/core.hpp>
+
+//#include <opencv2/opencv.hpp>
 typedef struct XSTime{
     uint8_t day_;
     uint8_t hour_;
