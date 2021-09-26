@@ -56,7 +56,7 @@ public:
     inline uint8_t get_id() const {return cam_id_;};
 protected:
     CAMERA_TYPE cam_type_ = CAMERA_TYPE_UNKOWN;
-    uint8_t cam_id_;
+    uint8_t cam_id_=255;
     static uint8_t cam_count_;
 };
 
