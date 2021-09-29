@@ -53,8 +53,12 @@
 #ifndef INIT_BOX_SELECTOR_HPP_
 #define INIT_BOX_SELECTOR_HPP_
 
+#ifndef TERMINAL_MODE
 #include "opencv2/highgui/highgui.hpp"
-#include "opencv2/opencv.hpp"
+#endif
+//#include "opencv2/opencv.hpp"
+
+#ifndef TERMINAL_MODE
 
 class InitBoxSelector
 {
@@ -69,5 +73,6 @@ private:
     static cv::Mat image;
     static const std::string windowTitle;
 };
+#endif
 
 #endif /* INIT_BOX_SELECTOR_H_ */

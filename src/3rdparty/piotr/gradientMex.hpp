@@ -43,7 +43,7 @@ TODO:
 #ifndef _GRADIENT_MEX_HPP_
 #define _GRADIENT_MEX_HPP_
 
-#include <opencv2/opencv.hpp>
+//#include <opencv2/opencv.hpp>
 #include "feature_channels.hpp"
 #include "wrappers.hpp"
 

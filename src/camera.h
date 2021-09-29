@@ -5,6 +5,19 @@
 #ifndef XSTRACKING_CAMERA_H
 #define XSTRACKING_CAMERA_H
 #include "common.h"
+#include <stdint.h>
+#include <iostream>
+#include <cstring>
+#include <vector>
+#include <opencv2/videoio.hpp>
+
+extern "C"
+{
+#include "libavformat/avformat.h"
+#include "libavcodec/mediacodec.h"
+#include "libavutil/mathematics.h"
+#include "libavutil/time.h"
+};
 
 class CameraFactory{
 public:
@@ -16,20 +29,25 @@ public:
 class UVC: public Camera{
 public:
     UVC(int cam);
-    UVC(std::string path);
+    UVC(std::string path, bool time_stamp=false);
     bool GetImg(Ximg &img);
 
 protected:
+    bool TSInit(std::string path);
+    bool GetTS(XSTime &time);
     cv::VideoCapture fb_;
+    bool time_stamp_=false;
+    int videoindex_;
+    AVFormatContext *ifmt_ctx_ = nullptr;
 };
 
-class XSCAM: public Camera{
-public:
-    XSCAM(std::string path);
-    bool GetImg(Ximg &img);
-
-protected:
-};
+//class XSCAM: public Camera{
+//public:
+//    XSCAM(std::string path);
+//    bool GetImg(Ximg &img);
+//
+//protected:
+//};
 
 
 

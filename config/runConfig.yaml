@@ -1,31 +1,19 @@
 %YAML:1.2
 # 0:UVC_ID 1:UVC_Path 2:XSCAM
-cameraType: [0]
+cameraType: [1]
 deviceId: [0]
-videoPath: ["","rtsp://128.0.0.1"]
+videoPath: ["/home/li/1.avi","rtsp://128.0.0.1"]
 usartDevice: "/dev/pts/0" #rs232
 #usartDevice: "" #rs232
 usartBaudrate: 9600
 enableDebug: 1
 showOutput: 1
 localDebug: 1
-videoDebug: 0
+videoDebug: 1
 outputFilePath: ""
 imgExportPath: ""
+timeStamp: 0
 
-cameraMatrix: !!opencv-matrix
-  rows: 3
-  cols: 3
-  dt: d
-  data: [ 1500., 0., 700.,
-          0., 1500., 500,
-          0., 0., 1. ]
-distCoeffs: !!opencv-matrix
-  rows: 5
-  cols: 1
-  dt: d
-  data: [ -5.2729417315775728e-01,
-          1.0375255020032772e+00,
-          -1.1707116502860683e-03,
-          -3.0690857412624976e-03,
-          -1.9045018646181906e+00 ]
+cameraMatrix: [{rows: 3,cols: 3,dt: d,data: [ 1500., 0., 700.,0., 1500., 500,0., 0., 1. ]},{rows: 3,cols: 3,dt: d,data: [ 1500., 0., 700.,0., 1500., 500,0., 0., 1. ]}]
+
+distCoeffs: [{rows: 5,cols: 1,dt: d,data: [ -5.2729417315775728e-01,1.0375255020032772e+00,-1.1707116502860683e-03,-3.0690857412624976e-03,-1.9045018646181906e+00 ]},{rows: 5,cols: 1,dt: d,data: [ -5.2729417315775728e-01,1.0375255020032772e+00,-1.1707116502860683e-03,-3.0690857412624976e-03,-1.9045018646181906e+00 ]}]

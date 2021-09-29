@@ -5,7 +5,11 @@
 #ifndef XSTRACKING_COMMON_H
 #define XSTRACKING_COMMON_H
 #include <stdint.h>
-#include <opencv2/opencv.hpp>
+#include <list>
+#include <iostream>
+#include <opencv2/core.hpp>
+
+//#include <opencv2/opencv.hpp>
 typedef struct XSTime{
     uint8_t day_;
     uint8_t hour_;
@@ -39,7 +43,7 @@ public:
 private:
     Camera const *cam_;
     cv::Mat img_;
-    XSTime time_={};
+    XSTime time_ {};
     uint64_t seq_ = 0;
 };
 enum CAMERA_TYPE{
@@ -56,9 +60,39 @@ public:
     inline uint8_t get_id() const {return cam_id_;};
 protected:
     CAMERA_TYPE cam_type_ = CAMERA_TYPE_UNKOWN;
-    uint8_t cam_id_;
+    uint8_t cam_id_=255;
     static uint8_t cam_count_;
 };
+
+inline bool operator <=(const XSTime &a0, const XSTime &a1) {
+    return a0.day_<a1.day_||
+    a0.day_==a1.day_&&a0.hour_<a1.hour_ ||
+    a0.hour_==a1.hour_ && a0.min_<a1.min_ ||
+    a0.min_==a1.min_ && a0.sec_ < a1.sec_ ||
+    a0.sec_==a1.sec_ && a0.msec_ <= a1.msec_;
+}
+
+class ImgCache{
+public:
+    explicit ImgCache(int size = 20){
+        cache_=std::list<Ximg>(size);
+    };
+    void PushImg(Ximg &img){
+        cache_.push_back(img);
+        cache_.pop_front();
+    }
+    void Get(XSTime time, Ximg &img){
+        auto p = cache_.rbegin();
+        while(time<=p->get_time()){
+            p++;
+        }
+        img = *p;
+    }
+private:
+    std::list<Ximg> cache_;
+
+};
+
 
 
 #endif //XSTRACKING_COMMON_H

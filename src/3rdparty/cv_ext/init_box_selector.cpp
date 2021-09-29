@@ -50,8 +50,10 @@
 // * Refactor file: Move target selection to separate class/file
 */
 
+#include <opencv2/imgproc.hpp>
 #include "init_box_selector.hpp"
 
+#ifndef TERMINAL_MODE
 void InitBoxSelector::onMouse(int event, int x, int y, int, void*)
 {
     if (!selectObject)
@@ -112,3 +114,4 @@ bool InitBoxSelector::startSelection = false;
 bool InitBoxSelector::selectObject = false;
 cv::Mat InitBoxSelector::image;
 cv::Rect InitBoxSelector::initBox;
+#endif

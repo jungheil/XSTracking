@@ -8,6 +8,8 @@
 */
 
 #include "tracker_run.hpp"
+#include<iomanip>
+
 
 #include <iostream>
 #include <ctype.h>
@@ -92,11 +94,27 @@ Parameters TrackerRun::parseCmdArgs()
     else cerr << "missing parameters!" << endl;
     if(!fs["enableDebug"].empty()) fs["enableDebug"]>>enableDebug;
     else cerr << "missing parameters!" << endl;
+    if(!fs["timeStamp"].empty()) fs["timeStamp"]>>paras.timeStamp;
+    else cerr << "missing parameters!" << endl;
 
-    if(!fs["cameraMatrix"].empty()) fs["cameraMatrix"]>>paras.cameraMatrix;
-    else cerr << "missing parameters!" << endl;
-    if(!fs["distCoeffs"].empty()) fs["distCoeffs"]>>paras.distCoeffs;
-    else cerr << "missing parameters!" << endl;
+    if(!fs["cameraMatrix"].empty()){
+        cv::FileNode cameraMatrixNode = fs["cameraMatrix"];
+        auto it=cameraMatrixNode.begin(), it_end=cameraMatrixNode.end();
+        for(;it!=it_end;++it){
+            cv::Mat t;
+            *it >> t;
+            paras.cameraMatrix.emplace_back(std::move(t));
+        }
+    }else cerr << "missing parameters!" << endl;
+    if(!fs["distCoeffs"].empty()){
+        cv::FileNode distCoeffsNode = fs["distCoeffs"];
+        auto it=distCoeffsNode.begin(), it_end=distCoeffsNode.end();
+        for(;it!=it_end;++it){
+            cv::Mat t;
+            *it >> t;
+            paras.distCoeffs.emplace_back(std::move(t));
+        }
+    }else cerr << "missing parameters!" << endl;
 
     fs.release();
 
@@ -168,11 +186,13 @@ bool TrackerRun::init()
         _image.push_back(std::move(temp_img));
         img_mutex_.emplace_back(make_unique<std::mutex>());
         img_used_.emplace_back(make_unique<std::atomic<bool>>(true));
+        img_cache_.emplace_back(make_unique<ImgCache>());
     }
 
+#ifndef TERMINAL_MODE
     if (_paras.showOutput)
         namedWindow(_windowTitle.c_str());
-
+#endif
     if (!_paras.outputFilePath.empty())
     {
         _resultsFile.open(_paras.outputFilePath.c_str());
@@ -223,17 +243,16 @@ bool TrackerRun::run()
 bool TrackerRun::update()
 {
     Ximg src;
-    UsartRecv recv{};
     int64 tStart = 0;
     int64 tDuration = 0;
 //    bool isEnd = false;
 
     usart_recv_mutex_.lock();
-    recv = usart_recv_;
+    recv_ = usart_recv_;
     usart_recv_mutex_.unlock();
 
     if(!_paras.localDebug){
-        switch(recv.command_){
+        switch(recv_.command_){
             case UsartCommandFree:
                 _isPaused = true;
                 _hasInitBox = false;
@@ -244,7 +263,7 @@ bool TrackerRun::update()
                 return true;
                 break;
             case UsartCommandTarInit:
-                if(tracking_tar_==recv.tar_id_){
+                if(tracking_tar_==recv_.tar_id_){
                     _isPaused = false;
                 }else{
                     _hasInitBox = false;
@@ -252,7 +271,7 @@ bool TrackerRun::update()
                 }
                 break;
             case UsartCommandTarInitAt:
-                if(tracking_tar_==recv.tar_id_) {
+                if(tracking_tar_==recv_.tar_id_) {
                     _isPaused = false;
                 }else{
                     _updateAtPos = true;
@@ -281,25 +300,48 @@ bool TrackerRun::update()
             img_mutex_[0]->unlock();
             *img_used_[0]=true;
         }else{
-            if(recv.camera_ == 0x01){
-                while(*img_used_[0]){}
-                img_mutex_[0]->lock();
-                src = _image[0];
-                img_mutex_[0]->lock();
-                *img_used_[0]=true;
-            }else if(recv.camera_ == 0x02){
-                while(*img_used_[1]){}
-                img_mutex_[1]->lock();
-                src = _image[1];
-                img_mutex_[1]->lock();
-                *img_used_[1]=true;
+            if(_paras.timeStamp){
+                if(recv_.camera_ == 0x01){
+                    while(*img_used_[0]){}
+                    img_mutex_[0]->lock();
+                    img_cache_[0]->Get(recv_.time_,src);
+                    img_mutex_[0]->lock();
+                    *img_used_[0]=true;
+                }else if(recv_.camera_ == 0x02){
+                    while(*img_used_[1]){}
+                    img_mutex_[1]->lock();
+                    img_cache_[1]->Get(recv_.time_,src);
+                    img_mutex_[1]->lock();
+                    *img_used_[1]=true;
+                }else{
+                    std::cerr<<"camera type error"<<endl;
+                    return true;
+                }
             }else{
-                std::cerr<<"camera type error"<<endl;
-                return true;
+                if(recv_.camera_ == 0x01){
+                    while(*img_used_[0]){}
+                    img_mutex_[0]->lock();
+                    src = _image[0];
+                    img_mutex_[0]->lock();
+                    *img_used_[0]=true;
+                }else if(recv_.camera_ == 0x02){
+                    while(*img_used_[1]){}
+                    img_mutex_[1]->lock();
+                    src = _image[1];
+                    img_mutex_[1]->lock();
+                    *img_used_[1]=true;
+                }else{
+                    std::cerr<<"camera type error"<<endl;
+                    return true;
+                }
             }
         }
         if (src.get_cv_color().empty())
             return false;
+
+        usart_send_mutex_.lock();
+        usart_send_.time_=src.get_time();
+        usart_send_mutex_.unlock();
 
         ++_frameIdx;
     }
@@ -313,14 +355,16 @@ bool TrackerRun::update()
             usart_send_mutex_.unlock();
             Rect box;
             if(_paras.localDebug){
+#ifndef TERMINAL_MODE
                 if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                     return false;
+#endif
             }else{
-                float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
-                box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
-                           int(recv.zoom_y_+recv.y_*zoom_s),
-                           int(recv.width_*zoom_s),
-                           int(recv.height_*zoom_s));
+                float zoom_s = recv_.zoom_size_/src.get_cv_color().cols;
+                box = Rect(int(recv_.zoom_x_+recv_.x_*zoom_s),
+                           int(recv_.zoom_y_+recv_.y_*zoom_s),
+                           int(recv_.width_*zoom_s),
+                           int(recv_.height_*zoom_s));
             }
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
                 static_cast<double>(box.y),
@@ -328,7 +372,7 @@ bool TrackerRun::update()
                 static_cast<double>(box.height));
 
             _hasInitBox = true;
-            tracking_tar_=recv.tar_id_;
+            tracking_tar_=recv_.tar_id_;
         }
 
         tStart = getTickCount();
@@ -351,14 +395,17 @@ bool TrackerRun::update()
             Rect box;
 
             if(_paras.localDebug){
+#ifndef TERMINAL_MODE
+
                 if (!InitBoxSelector::selectBox(src.get_cv_color(), box))
                     return false;
+#endif
             }else{
-                float zoom_s = recv.zoom_size_/src.get_cv_color().cols;
-                box = Rect(int(recv.zoom_x_+recv.x_*zoom_s),
-                           int(recv.zoom_y_+recv.y_*zoom_s),
-                           int(recv.width_*zoom_s),
-                           int(recv.height_*zoom_s));
+                float zoom_s = recv_.zoom_size_/src.get_cv_color().cols;
+                box = Rect(int(recv_.zoom_x_+recv_.x_*zoom_s),
+                           int(recv_.zoom_y_+recv_.y_*zoom_s),
+                           int(recv_.width_*zoom_s),
+                           int(recv_.height_*zoom_s));
             }
 
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
@@ -376,7 +423,7 @@ bool TrackerRun::update()
             if (!_targetOnFrame)
                 std::cout << "Target not found!" << std::endl;
 
-            tracking_tar_=recv.tar_id_;
+            tracking_tar_=recv_.tar_id_;
         }
         else
         {
@@ -400,6 +447,7 @@ bool TrackerRun::update()
     double fps = static_cast<double>(getTickFrequency() / tDuration);
     printResults(_boundingBox, _targetOnFrame, fps);
 
+#ifndef TERMINAL_MODE
     if (_paras.showOutput)
     {
         Mat hudImage;
@@ -431,7 +479,6 @@ bool TrackerRun::update()
             line(hudImage, cv::Point_<double>(tl.x, br.y),
                 cv::Point_<double>(br.x, tl.y), Scalar(0, 0, 255));
         }
-
         imshow(_windowTitle.c_str(), hudImage);
 
         if (!_paras.imgExportPath.empty())
@@ -449,6 +496,7 @@ bool TrackerRun::update()
                 cerr << "Could not write output images: " << runtimeError.what() << endl;
             }
         }
+
 
         char c = (char)waitKey(10);
 
@@ -477,6 +525,8 @@ bool TrackerRun::update()
             ;
         }
     }
+#endif
+
 
     return true;
 }
@@ -508,15 +558,15 @@ void TrackerRun::setTrackerDebug(cf_tracking::TrackerDebug* debug)
     _debug = debug;
 }
 
-void TrackerRun::AngleResolve(const Rect_<double> &boundingBox, double &pitch, double &yaw) {
+void TrackerRun::AngleResolve(const Rect_<double> &boundingBox, double &pitch, double &yaw, int cam_id) {
     double x = boundingBox.width/2 + boundingBox.x;
     double y = boundingBox.height/2 + boundingBox.y;
 
     // TODO: 忽略畸变参数
-    pitch = atan2((_paras.cameraMatrix.at<double>(1,2)-y),
-            _paras.cameraMatrix.at<double>(1,1));
-    yaw = atan2((_paras.cameraMatrix.at<double>(0,2)-x),
-                  _paras.cameraMatrix.at<double>(0,0));
+    pitch = atan2((_paras.cameraMatrix[cam_id].at<double>(1,2)-y),
+            _paras.cameraMatrix[cam_id].at<double>(1,1));
+    yaw = atan2((_paras.cameraMatrix[cam_id].at<double>(0,2)-x),
+                  _paras.cameraMatrix[cam_id].at<double>(0,0));
 }
 
 void TrackerRun::UsartThread() {
@@ -525,10 +575,11 @@ void TrackerRun::UsartThread() {
     while(!exit_){
         cout<<"usart thread started!"<<endl;
 
-        _usart.Send((void*)&send_msg);
         usart_send_mutex_.lock();
-        usart_send_=send_msg;
+        send_msg=usart_send_;
         usart_send_mutex_.unlock();
+        _usart.Send((void*)&send_msg);
+
 
         _usart.Recv((void*)&recv_msg);
         usart_recv_mutex_.lock();
@@ -554,6 +605,7 @@ void TrackerRun::CameraThread(std::shared_ptr<Camera> cam) {
         img_mutex_[cam->get_id()]->lock();
         _image[cam->get_id()] = std::move(temp_img);
         *img_used_[cam->get_id()]=false;
+        img_cache_[cam->get_id()]->PushImg(_image[cam->get_id()]);
         img_mutex_[cam->get_id()]->unlock();
     }
 }
@@ -573,6 +625,9 @@ void TrackerRun::TrackingThread() {
             exit_ = true;
             break;
         }
+        usart_send_mutex_.lock();
+        AngleResolve(_boundingBox,usart_send_.pitch_,usart_send_.yaw_,recv_.camera_);
+        usart_send_mutex_.unlock();
     }
 }
 
