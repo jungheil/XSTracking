@@ -3,6 +3,8 @@ project(XSTracking)
 
 set(CMAKE_CXX_STANDARD 14)
 
+#add_definitions(-D TERMINAL_MODE)
+
 # add OpenCV
 set(OPENCV_DIR_HINT "")
 
