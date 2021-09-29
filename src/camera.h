@@ -41,13 +41,13 @@ protected:
     AVFormatContext *ifmt_ctx_ = nullptr;
 };
 
-class XSCAM: public Camera{
-public:
-    XSCAM(std::string path);
-    bool GetImg(Ximg &img);
-
-protected:
-};
+//class XSCAM: public Camera{
+//public:
+//    XSCAM(std::string path);
+//    bool GetImg(Ximg &img);
+//
+//protected:
+//};
 
 
 

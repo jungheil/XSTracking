@@ -130,7 +130,7 @@ std::shared_ptr<Camera> CameraFactory::CreateCamera(CAMERA_TYPE cam_type, std::s
             return std::make_shared<UVC>(path);
             break;
         case CAMERA_TYPE_XSCAM:
-            return std::make_shared<XSCAM>(path);
+            return std::make_shared<UVC>(path,true);
             break;
         default:
             std::cerr<<"camera type invalid!"<<std::endl;
@@ -147,10 +147,10 @@ std::shared_ptr<Camera> CameraFactory::CreateCamera(CAMERA_TYPE cam_type, int id
     }
 }
 
-XSCAM::XSCAM(std::string path) {
-
-}
-
-bool XSCAM::GetImg(Ximg &img) {
-
-}
+//XSCAM::XSCAM(std::string path) {
+//
+//}
+//
+//bool XSCAM::GetImg(Ximg &img) {
+//
+//}
