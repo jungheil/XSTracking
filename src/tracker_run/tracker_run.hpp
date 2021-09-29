@@ -89,8 +89,9 @@ struct Parameters{
     bool showOutput;
     bool videoDebug;
     bool localDebug;
-    cv::Mat cameraMatrix;
-    cv::Mat distCoeffs;
+    bool timeStamp;
+    std::vector<cv::Mat> cameraMatrix;
+    std::vector<cv::Mat> distCoeffs;
 };
 
 class TrackerRun
@@ -108,7 +109,7 @@ private:
     bool update();
     void printResults(const cv::Rect_<double>& boundingBox, bool isConfident, double fps);
     // TODO: 目前忽略相机到关节的转换
-    void AngleResolve(const cv::Rect_<double>& boundingBox, double &pitch, double &yaw);
+    void AngleResolve(const cv::Rect_<double>& boundingBox, double &pitch, double &yaw, int cam_id);
     bool SendMsg(bool isTracking,cv::Rect_<double> box);
 
     void UsartThread();
@@ -154,6 +155,9 @@ private:
     std::vector<Ximg> _image;
     std::vector<std::unique_ptr<std::mutex>> img_mutex_;
     std::vector<std::unique_ptr<std::atomic<bool>>> img_used_;
+    std::vector<std::unique_ptr<ImgCache>> img_cache_;
+
+    UsartRecv recv_{};
 
 };
 
