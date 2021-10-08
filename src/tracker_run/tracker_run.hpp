@@ -31,7 +31,8 @@ enum UsartStatus{
     UsartStatusInit = 0x03,
     UsartStatusTracking = 0x04,
     UsartStatusLoss = 0x05,
-    UsartStatusError = 0x06
+    UsartStatusError = 0x06,
+    UsartStatusRecording = 0x80
 };
 
 struct UsartSend{
@@ -47,8 +48,9 @@ enum UsartCommand{
     UsartCommandTarInit = 0x31,
     UsartCommandTarInitAt = 0x32,
     UsartCommandStopTrack = 0x33,
-    UsartComandStartTrack = 0x34
-//    UsartCommandZoom = 0x35
+    UsartComandStartTrack = 0x34,
+    UsartCommandStartRecord = 0x35,
+    UsartCommandStopRecord = 0x36
 };
 
 enum UsartCamera{
@@ -69,6 +71,7 @@ struct UsartRecv{
     uint16_t zoom_y_;
     uint8_t zoom_size_;
     XSTime time_;
+
 };
 class XSUsart:public Usart{
 public:
@@ -83,6 +86,7 @@ struct Parameters{
     std::string imgExportPath;
     std::vector<std::string> videoPath;
     std::string usartDevice;
+    std::string savePath;
     int usartBaudrate;
     std::vector<int> device;
     std::vector<int> deviceId;
@@ -117,6 +121,8 @@ private:
     void CameraThread(std::shared_ptr<Camera> cam);
     void CameraThreadFactory(std::vector<std::shared_ptr<Camera>> cams);
     void TrackingThread();
+
+    [[noreturn]] void RecordThread();
 
 protected:
     virtual cf_tracking::CfTracker* parseTrackerParas(bool enableDebug=false) = 0;
@@ -156,6 +162,7 @@ private:
     std::vector<std::unique_ptr<std::mutex>> img_mutex_;
     std::vector<std::unique_ptr<std::atomic<bool>>> img_used_;
     std::vector<std::unique_ptr<ImgCache>> img_cache_;
+    std::vector<std::unique_ptr<std::atomic<bool>>> img_recorded;
 
     UsartRecv recv_{};
 

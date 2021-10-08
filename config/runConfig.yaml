@@ -13,6 +13,7 @@ videoDebug: 1
 outputFilePath: ""
 imgExportPath: ""
 timeStamp: 0
+savePath: "/"
 
 cameraMatrix: [{rows: 3,cols: 3,dt: d,data: [ 1500., 0., 700.,0., 1500., 500,0., 0., 1. ]},{rows: 3,cols: 3,dt: d,data: [ 1500., 0., 700.,0., 1500., 500,0., 0., 1. ]}]
 

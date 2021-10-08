@@ -92,6 +92,39 @@ private:
     std::list<Ximg> cache_;
 
 };
+#include   <opencv2/videoio.hpp>
+#include <ctime>
+class VideoRecorder{
+public:
+    VideoRecorder(std::string path, cv::Size size, bool isColor):path_(path){
+        st_=clock();
+//        writer.open(path,cv::VideoWriter::fourcc('D', 'I', 'V', 'X') ,30,size,isColor);
+    };
+    inline bool operator << (const cv::Mat &src){
+//        if((clock()-st_)/CLOCKS_PER_SEC));
+        if(!videoWriter_){
+            time_t t;
+            time(&t);
+            char *str=ctime(&t);
+            std::string path = path_ + str + ".avi";
+            videoWriter_ = std::make_unique<cv::VideoWriter>(path,cv::VideoWriter::fourcc('D', 'I', 'V', 'X') ,30,size_,isColor_);
+        }
+        (*videoWriter_)<<src;
+    }
+    void Release(){
+        videoWriter_->release();
+        videoWriter_.reset();
+    }
+
+
+private:
+    std::string path_;
+    cv::Size size_;
+    bool isColor_;
+    std::unique_ptr<cv::VideoWriter> videoWriter_ = nullptr;
+//    cv::VideoWriter writer;
+    time_t st_;
+};
 
 
 
