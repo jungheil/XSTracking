@@ -14,8 +14,11 @@ class DsstTrackerRun : public TrackerRun {
         cf_tracking::DsstParameters paras;
         cv::FileStorage fs(_trackerConfigPath, cv::FileStorage::READ);
         if (!fs.isOpened()) {
-            std::cerr << "load param failed!" << std::endl;
-            exit(100);
+            fs.open("./trackerConfig.yaml", cv::FileStorage::READ);
+            if (!fs.isOpened()) {
+                std::cerr << "load param failed!" << std::endl;
+                exit(100);
+            }
         }
         if (!fs["templateSize"].empty())
             fs["templateSize"] >> paras.templateSize;

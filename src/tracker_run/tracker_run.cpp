@@ -35,8 +35,11 @@ Parameters TrackerRun::parseCmdArgs() {
 
     cv::FileStorage fs(_runConfigPath, cv::FileStorage::READ);
     if (!fs.isOpened()) {
-        cerr << "load param failed!" << endl;
-        exit(100);
+        fs.open("./runConfig.yaml", cv::FileStorage::READ);
+        if (!fs.isOpened()) {
+            cerr << "load param failed!" << endl;
+            exit(100);
+        }
     }
     if (!fs["cameraType"].empty()) {
         cv::FileNode deviceNode = fs["cameraType"];
@@ -351,9 +354,9 @@ bool TrackerRun::update() {
             } else {
                 float zoom_s = recv_.zoom_size_ / src.get_cv_color().cols;
                 box          = Rect(int(recv_.zoom_x_ + recv_.x_ * zoom_s),
-                           int(recv_.zoom_y_ + recv_.y_ * zoom_s),
-                           int(recv_.width_ * zoom_s),
-                           int(recv_.height_ * zoom_s));
+                                    int(recv_.zoom_y_ + recv_.y_ * zoom_s),
+                                    int(recv_.width_ * zoom_s),
+                                    int(recv_.height_ * zoom_s));
             }
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
                                          static_cast<double>(box.y),
@@ -388,9 +391,9 @@ bool TrackerRun::update() {
             } else {
                 float zoom_s = recv_.zoom_size_ / src.get_cv_color().cols;
                 box          = Rect(int(recv_.zoom_x_ + recv_.x_ * zoom_s),
-                           int(recv_.zoom_y_ + recv_.y_ * zoom_s),
-                           int(recv_.width_ * zoom_s),
-                           int(recv_.height_ * zoom_s));
+                                    int(recv_.zoom_y_ + recv_.y_ * zoom_s),
+                                    int(recv_.width_ * zoom_s),
+                                    int(recv_.height_ * zoom_s));
             }
 
             _boundingBox = Rect_<double>(static_cast<double>(box.x),
@@ -535,7 +538,7 @@ void TrackerRun::AngleResolve(const Rect_<double> &boundingBox, double &pitch,
     pitch = atan2((_paras.cameraMatrix[cam_id].at<double>(1, 2) - y),
                   _paras.cameraMatrix[cam_id].at<double>(1, 1));
     yaw   = atan2((_paras.cameraMatrix[cam_id].at<double>(0, 2) - x),
-                _paras.cameraMatrix[cam_id].at<double>(0, 0));
+                  _paras.cameraMatrix[cam_id].at<double>(0, 0));
 }
 
 void TrackerRun::UsartThread() {
@@ -682,7 +685,7 @@ void TrackerRun::TrackingThread() {
 bool XSUsart::Send(void *msg) {
     uint8_t buff[25];
     memset(buff, 0, 25);
-    auto * p     = (UsartSend *)msg;
+    auto  *p     = (UsartSend *)msg;
     double yaw   = p->yaw_ * (180 / 3.1415926) * 100;
     double pitch = p->pitch_ * (180 / 3.1415926) * 100;
 
