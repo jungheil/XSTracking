@@ -31,6 +31,10 @@ struct UsartSend {
     double      yaw_;
     uint8_t     error = 0x00;
     XSTime      time_;
+    uint16_t    x_;
+    uint16_t    y_;
+    uint16_t    width_;
+    uint16_t    height_;
 };
 
 enum UsartCommand {

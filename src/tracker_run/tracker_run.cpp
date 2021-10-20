@@ -600,6 +600,10 @@ void TrackerRun::TrackingThread() {
         usart_send_mutex_.lock();
         AngleResolve(_boundingBox, usart_send_.pitch_, usart_send_.yaw_,
                      recv_.camera_);
+        usart_send_.x_ = static_cast<uint16_t>(_boundingBox.x);
+        usart_send_.y_ = static_cast<uint16_t>(_boundingBox.y);
+        usart_send_.width_ = static_cast<uint16_t>(_boundingBox.width);
+        usart_send_.height_ = static_cast<uint16_t>(_boundingBox.height);
         usart_send_mutex_.unlock();
     }
 }
@@ -703,6 +707,15 @@ bool XSUsart::Send(void *msg) {
     buff[13] = (p->time_).hour_;
     buff[14] = (p->time_).day_;
     buff[19] = p->error;
+    buff[15] = p->x_ & 0x00FF;
+    buff[16] = p->x_ >> 8;
+    buff[17] = p->y_ & 0x00FF;
+    buff[18] = p->y_ >> 8;
+    buff[20] = p->width_ & 0x00FF;
+    buff[21] = p->width_ >> 8;
+    buff[22] = p->height_ & 0x00FF;
+    buff[23] = p->height_ >> 8;
+
 
     if (Write(buff, 25)) {
         return true;
