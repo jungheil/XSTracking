@@ -2,7 +2,7 @@
 # 0:UVC_ID 1:UVC_Path 2:XSCAM
 cameraType: [1]
 deviceId: [0]
-videoPath: ["/home/li/1.avi","rtsp://128.0.0.1"]
+videoPath: ["/home/li/test3.mp4","rtsp://128.0.0.1"]
 usartDevice: "/dev/pts/0" #rs232
 #usartDevice: "" #rs232
 usartBaudrate: 9600
