@@ -19,7 +19,8 @@
 class Usart {
   public:
     Usart() = default;
-    explicit Usart(char *device, uint32_t baudrate = 9600);  //串口初始化
+    explicit Usart(char *device, uint32_t baudrate = 9600,
+                   uint8_t len = 0);  //串口初始化
     void Init();
     bool Write(uint8_t *buff, int len);
     bool Read(uint8_t *buff, int len);
@@ -34,6 +35,7 @@ class Usart {
     speed_t  baudr_;
     char *   device_;
     int      serial_fd_;  //设备名称
+    uint8_t  len_ = 0;
     uint16_t GetCRC16CheckSum(uint8_t *pchMessage, uint32_t dwLength,
                               uint16_t wCRC);
     uint32_t VerifyCRC16CheckSum(uint8_t *pchMessage, uint32_t dwLength);

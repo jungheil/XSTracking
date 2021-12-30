@@ -1,6 +1,6 @@
 %YAML:1.2
 padding: 1.6
-templateSize: 32
+templateSize: 64
 hogCell: 1
 pSigma: 0.05
 learningRate: 0.012

@@ -71,7 +71,7 @@ inline bool operator<=(const XSTime &a0, const XSTime &a1) {
 class ImgCache {
   public:
     explicit ImgCache(int size = 20) { cache_ = std::list<Ximg>(size); };
-    void PushImg(Ximg &img) {
+    void PushImg(const Ximg &img) {
         cache_.push_back(img);
         cache_.pop_front();
     }
@@ -83,6 +83,64 @@ class ImgCache {
 
   private:
     std::list<Ximg> cache_;
+};
+
+template <std::size_t _Nm>
+class ImgBuff {
+  public:
+    explicit ImgBuff() = default;
+    void Push(const Ximg &img) {
+        buff_[p_] = img;
+        p_        = Next(p_);
+        if (p_ == g_) g_ = Next(g_);
+    }
+    bool Get(Ximg &img, bool isnew = false) {
+        if (g_ == p_) { return false; }
+        if (isnew) {
+            img = buff_[Prev(p_)];
+            g_  = p_;
+        } else {
+            img = buff_[g_];
+            g_  = Next(g_);
+        }
+        return true;
+    }
+    bool Get(Ximg &img, XSTime time) {
+        std::size_t i = Prev(p_);
+        while (i != p_) {
+            if (time <= buff_[i].get_time()) {
+                img = buff_[i];
+                g_  = Next(i);
+                return true;
+            }
+            i = Prev(i);
+        }
+        img = buff_[p_];
+        g_  = Next(p_);
+        return true;
+    }
+    std::size_t get_delay() {
+        if (g_ <= p_) {
+            return p_ - g_;
+        } else {
+            return p_ - g_ + _Nm;
+        }
+    }
+
+  private:
+    std::size_t Next(std::size_t p) {
+        p = (p + 1) % _Nm;
+        return p;
+    }
+    std::size_t Prev(std::size_t p) {
+        p = (p - 1) % _Nm;
+        return p;
+    }
+
+  private:
+    std::array<Ximg, _Nm> buff_;
+    std::size_t           p_ = 0;
+    std::size_t           g_ = 0;
 };
 #include <ctime>
 #include <opencv2/videoio.hpp>

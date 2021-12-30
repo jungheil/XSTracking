@@ -76,7 +76,8 @@ void Usart::AppendCRC16CheckSum(uint8_t *pchMessage, uint32_t dwLength) {
     pchMessage[dwLength - 1] = (uint8_t)((wCRC >> 8) & 0x00ff);
 }
 
-Usart::Usart(char *device, uint32_t baudrate) : device_(device), empty_(false) {
+Usart::Usart(char *device, uint32_t baudrate, uint8_t len)
+    : device_(device), empty_(false), len_(len) {
     switch (baudrate) {
         case 50:
             baudr_ = B50;
@@ -232,6 +233,7 @@ void Usart::Init() {
     options.c_iflag &= ~(ICRNL | IXON);
     options.c_lflag = 0;            //不激活终端模式
     cfsetospeed(&options, baudr_);  //设置波特率
+    if (len_ != 0) { options.c_cc[VMIN] = len_; }
 
     /**3. 设置新属性，TCSANOW：所有改变立即生效*/
     tcflush(serial_fd_, TCIFLUSH);  //溢出数据可以接收，但不读

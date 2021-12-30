@@ -65,7 +65,7 @@ struct UsartRecv {
 class XSUsart : public Usart {
   public:
     XSUsart() : Usart(){};
-    XSUsart(char* device, uint32_t baudrate) : Usart(device, baudrate){};
+    XSUsart(char* device, uint32_t baudrate) : Usart(device, baudrate, 37){};
     bool Send(void* msg) override;
     bool Recv(void* msg) override;
 };
@@ -143,16 +143,19 @@ class TrackerRun {
     std::vector<std::shared_ptr<Camera>> cameras_;
     std::vector<std::thread>             thread_pool_;
     std::atomic<bool>                    exit_;
+    std::atomic<bool>                    recording;
+    UsartSend                            usart_temp_ = {};
     // 临界资源
     UsartSend  usart_send_ = {};
     UsartRecv  usart_recv_ = {};
     std::mutex usart_send_mutex_;
     std::mutex usart_recv_mutex_;
 
-    std::vector<Ximg>                               _image;
-    std::vector<std::unique_ptr<std::mutex>>        img_mutex_;
-    std::vector<std::unique_ptr<std::atomic<bool>>> img_used_;
-    std::vector<std::unique_ptr<ImgCache>>          img_cache_;
+    //    std::vector<Ximg>                               _image;
+    std::vector<std::unique_ptr<std::mutex>> img_mutex_;
+    //    std::vector<std::unique_ptr<std::atomic<bool>>> img_used_;
+    //    std::vector<std::unique_ptr<ImgCache>>          img_cache_;
+    std::vector<std::unique_ptr<ImgBuff<20>>>       img_buff_;
     std::vector<std::unique_ptr<std::atomic<bool>>> img_recorded;
 
     UsartRecv recv_{};
