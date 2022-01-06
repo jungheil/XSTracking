@@ -184,10 +184,10 @@ class ScaleEstimator {
 
         cv::Mat sfDenLambda;
         sfDenLambda =
-            addRealToSpectrum<T>(_LAMBDA, _sfDenominator, cv::DFT_ROWS);
+            cvext::addRealToSpectrum<T>(_LAMBDA, _sfDenominator, cv::DFT_ROWS);
 
         cv::Mat responseSf;
-        divSpectrums(xsf, sfDenLambda, responseSf, cv::DFT_ROWS, false);
+        cvext::divSpectrums(xsf, sfDenLambda, responseSf, cv::DFT_ROWS, false);
 
         cv::Mat scaleResponse;
         idft(responseSf, scaleResponse,

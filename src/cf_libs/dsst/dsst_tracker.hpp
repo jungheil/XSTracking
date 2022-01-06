@@ -485,12 +485,13 @@ class DsstTracker : public CfTracker {
 
         std::shared_ptr<DFC> sampleSpec =
             DFC::mulSpectrumsFeatures(_hfNumerator, xtf, false);
-        cv::Mat sumXtf      = DFC::sumFeatures(sampleSpec);
-        cv::Mat hfDenLambda = addRealToSpectrum<T>(_LAMBDA, _hfDenominator);
+        cv::Mat sumXtf = DFC::sumFeatures(sampleSpec);
+        cv::Mat hfDenLambda =
+            cvext::addRealToSpectrum<T>(_LAMBDA, _hfDenominator);
         cv::Mat responseTf;
 
         if (_USE_CCS)
-            divSpectrums(sumXtf, hfDenLambda, responseTf, 0, false);
+            cvext::divSpectrums(sumXtf, hfDenLambda, responseTf, 0, false);
         else
             divideSpectrumsNoCcs<T>(sumXtf, hfDenLambda, responseTf);
 

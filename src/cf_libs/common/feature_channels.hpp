@@ -77,7 +77,7 @@ class FeatureChannels_ {
 
         for (int i = 0; i < NUMBER_OF_CHANNELS; ++i) {
             mulSpectrums(Af->channels[i], Af->channels[i], elemMul, 0, true);
-            sum_ += static_cast<T>(sumRealOfSpectrum<T>(elemMul));
+            sum_ += static_cast<T>(cvext::sumRealOfSpectrum<T>(elemMul));
         }
 
         return sum_ / n;
