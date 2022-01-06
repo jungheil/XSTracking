@@ -49,7 +49,7 @@ class CRC16 {
             t = t << 1;
             t = t | ((buff >> i) & 0x01);
         }
-        return std::move(t);
+        return t;
     }
 };
 
